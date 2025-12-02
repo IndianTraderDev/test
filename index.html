@@ -3,10 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ScreenApp Clone - Screen & Camera Recorder</title>
+    <title>Free ScreenRecorder App - Screen & Camera Recorder</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Client-side WebM to MP4 Conversion Library (for browser compatibility) -->
+    <!-- NOTE: This is required to satisfy the MP4 download request using client-side conversion. -->
+    <script src="https://cdn.jsdelivr.net/npm/ts-ebml@2.0.2/ts-ebml.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/webm-to-mp4@1.0.0/dist/webm-to-mp4.min.js"></script>
+
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -43,7 +49,7 @@
                 <svg class="w-8 h-8 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                 Screen Recorder
             </h1>
-            <p class="text-gray-500 mt-2">Capture your screen, camera, and microphone in one click.</p>
+            <p class="text-gray-500 mt-2">Capture your screen, camera, and microphone in one click. Now downloads in MP4 format.</p>
         </header>
 
         <!-- Configuration and Controls -->
@@ -94,6 +100,8 @@
 
                 <!-- Error Message -->
                 <p id="errorMessage" class="text-red-600 mt-4 text-sm text-center hidden"></p>
+                <!-- Conversion Status -->
+                <p id="conversionStatus" class="text-indigo-700 mt-4 text-sm text-center hidden font-semibold"></p>
             </div>
         </div>
 
@@ -114,7 +122,7 @@
             <div id="downloadArea" class="mt-4 flex justify-center hidden">
                 <button id="downloadButton" class="px-6 py-3 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition duration-150 transform active:scale-95" onclick="downloadRecording()">
                     <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                    Download Video
+                    Download MP4 Video
                 </button>
             </div>
         </div>
@@ -131,6 +139,7 @@
         let recordingState = 'idle'; // 'idle', 'recording', 'paused'
         let timerInterval = null;
         let startTime = 0;
+        let finalMp4Blob = null; // Stores the converted MP4 Blob
 
         // DOM elements
         const recordButton = document.getElementById('recordButton');
@@ -142,6 +151,7 @@
         const initialMessage = document.getElementById('initialMessage');
         const downloadArea = document.getElementById('downloadArea');
         const errorMessage = document.getElementById('errorMessage');
+        const conversionStatus = document.getElementById('conversionStatus');
 
         // Configuration Toggles
         const screenToggle = document.getElementById('screenToggle');
@@ -161,6 +171,17 @@
         }
 
         /**
+         * Clears all stream and preview sources.
+         */
+        function clearPreview() {
+            livePreview.srcObject = null;
+            cameraPreview.srcObject = null;
+            livePreview.src = ''; 
+            livePreview.controls = false;
+            finalMp4Blob = null;
+        }
+
+        /**
          * Updates the UI based on the current recording state, carefully preserving
          * the finished video preview if it exists.
          */
@@ -168,10 +189,9 @@
             errorMessage.classList.add('hidden');
             
             const isRecording = recordingState !== 'idle';
-            const isPaused = recordingState === 'paused';
             
-            // Determine if a finished video is currently loaded for playback (src is set and controls are visible)
-            const hasFinishedVideo = recordingState === 'idle' && livePreview.src.length > 0 && livePreview.controls;
+            // Determine if a finished video is currently loaded for playback 
+            const hasFinishedVideo = recordingState === 'idle' && finalMp4Blob !== null;
             
             // --- UI Visibility ---
 
@@ -260,7 +280,6 @@
          * Acquires all selected media streams (screen, camera, mic).
          */
         async function acquireStreams() {
-            const streams = [];
             const isScreenSelected = screenToggle.checked;
             const isCameraSelected = cameraToggle.checked;
             const isMicSelected = micToggle.checked;
@@ -272,21 +291,17 @@
             try {
                 // 1. Acquire Screen Stream
                 if (isScreenSelected) {
-                    // Use getDisplayMedia for screen sharing
                     screenStream = await navigator.mediaDevices.getDisplayMedia({
                         video: true
                     });
-                    streams.push(screenStream);
                     livePreview.srcObject = screenStream;
                     livePreview.load();
                 } else {
-                    // If only camera is selected, use it for the main preview
                     livePreview.srcObject = null;
                 }
 
                 // 2. Acquire Camera Stream
                 if (isCameraSelected) {
-                    // Use getUserMedia for camera feed
                     cameraStream = await navigator.mediaDevices.getUserMedia({
                         video: true
                     });
@@ -302,7 +317,6 @@
                         livePreview.load();
                         cameraPreview.classList.add('hidden');
                     }
-                    streams.push(cameraStream);
                 } else {
                     cameraPreview.classList.add('hidden');
                 }
@@ -341,7 +355,7 @@
                     combinedStream.addTrack(audioTrack);
                 }
                 
-                // When the screen share stops externally (e.g., user clicks 'Stop Sharing' in browser dialog)
+                // When the screen share stops externally
                 if (screenStream) {
                     screenStream.getVideoTracks()[0].onended = () => {
                         if (recordingState === 'recording') {
@@ -355,23 +369,20 @@
                 return combinedStream;
 
             } catch (error) {
-                // Error handling for permissions or no devices
                 console.error("Error acquiring media streams:", error);
                 
                 let userMessage = "Could not access media devices. Please check permissions and device availability.";
                 
                 if (error.name === 'NotAllowedError') {
                     if (isScreenSelected) {
-                        // Specific instruction for sandbox/iframe constraint (likely the cause of the original error)
-                        userMessage = "Screen sharing access was denied by your browser or the current execution environment (iframe/sandbox). Try unchecking 'Screen Sharing' and recording only your 'Webcam Feed' instead.";
+                        userMessage = "Screen sharing access was denied by your browser or environment. Try unchecking 'Screen Sharing' and recording only your 'Webcam Feed'.";
                     } else {
-                        userMessage = "Webcam or Microphone access was denied. Please allow camera/mic access in your browser settings.";
+                        userMessage = "Webcam or Microphone access was denied. Please allow camera/mic access.";
                     }
                 } else if (error.name === 'NotFoundError') {
                     userMessage = "No camera or microphone devices found.";
                 }
 
-                // Throw a new Error with the custom message to be caught by toggleRecording()
                 throw new Error(userMessage + (error.name ? ` (Error Type: ${error.name})` : ''));
             }
         }
@@ -382,7 +393,8 @@
          */
         function startRecording(stream) {
             recordedChunks = [];
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp8,opus' });
+            // Use vp9 codec for better quality if available
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9,opus' });
 
             mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
@@ -390,58 +402,79 @@
                 }
             };
 
-            mediaRecorder.onstop = () => {
-                // Stop all tracks when recording finishes
+            mediaRecorder.onstop = async () => {
+                // Perform cleanup
                 stopStream(screenStream);
                 stopStream(cameraStream);
                 stopStream(micStream);
-                screenStream = null;
-                cameraStream = null;
-                micStream = null;
-                
                 stopTimer();
-                livePreview.srcObject = null;
-                cameraPreview.srcObject = null;
+                clearPreview();
                 
-                // Create the download link/button
-                const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                const videoUrl = URL.createObjectURL(blob);
-                
-                // Set the finished video as the preview source
-                livePreview.src = videoUrl;
-                livePreview.muted = false; // Unmute finished video
-                livePreview.controls = true; // Show controls on finished video
-                livePreview.classList.remove('hidden');
+                // 1. Create WebM blob from chunks
+                const webmBlob = new Blob(recordedChunks, { type: 'video/webm' });
 
-                downloadButton.onclick = () => {
-                    const a = document.createElement('a');
-                    a.href = videoUrl;
-                    a.download = `recording-${new Date().toISOString().slice(0, 10)}.webm`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    // Revoke the object URL after download
-                    URL.revokeObjectURL(videoUrl);
-                };
+                // 2. Start conversion status update
+                conversionStatus.textContent = "Converting to MP4... Please wait.";
+                conversionStatus.classList.remove('hidden');
+                recordButton.disabled = true;
 
-                // State change and UI update (updateUI must be smart enough not to hide the preview/download button)
-                recordingState = 'idle';
-                updateUI();
+                try {
+                    // 3. Convert WebM Blob to MP4 Blob using the client-side library
+                    const converter = new WebMToMp4();
+                    const mp4Blob = await converter.convert(webmBlob, {
+                        audio: true,
+                        video: true,
+                        // Ensure the blob is not too large for the conversion process
+                        maxFileSize: 1024 * 1024 * 1024 // 1GB
+                    });
+
+                    // 4. Store the final MP4 blob and display preview
+                    finalMp4Blob = mp4Blob;
+                    const videoUrl = URL.createObjectURL(finalMp4Blob);
+                    
+                    livePreview.src = videoUrl;
+                    livePreview.muted = false; 
+                    livePreview.controls = true; 
+                    livePreview.classList.remove('hidden');
+
+                    // 5. Update UI for finished state
+                    conversionStatus.classList.add('hidden');
+                    recordingState = 'idle';
+                    updateUI();
+
+                } catch (error) {
+                    console.error("MP4 Conversion Failed:", error);
+                    conversionStatus.classList.add('hidden');
+                    errorMessage.textContent = "MP4 conversion failed. Downloading original WebM instead. Error: " + error.message;
+                    errorMessage.classList.remove('hidden');
+                    
+                    // Fallback to WebM download
+                    finalMp4Blob = webmBlob;
+                    downloadButton.textContent = 'Download WebM Video (Fallback)';
+                    
+                    const videoUrl = URL.createObjectURL(finalMp4Blob);
+                    livePreview.src = videoUrl;
+                    livePreview.muted = false; 
+                    livePreview.controls = true; 
+                    livePreview.classList.remove('hidden');
+                    
+                    recordingState = 'idle';
+                    updateUI();
+                }
             };
             
             mediaRecorder.onerror = (e) => {
                 console.error('MediaRecorder error:', e);
                 errorMessage.textContent = `Recording failed: ${e.error.name}. Try selecting different sources.`;
                 errorMessage.classList.remove('hidden');
-                // Ensure everything stops on error
                 stopRecording(false); 
             };
 
 
-            mediaRecorder.start(1000); // Collect data every 1 second
+            mediaRecorder.start(1000); 
             recordingState = 'recording';
-            livePreview.muted = true; // Mute live preview
-            livePreview.controls = false; // Hide controls on live preview
+            livePreview.muted = true; 
+            livePreview.controls = false; 
             updateUI();
             startTimer();
         }
@@ -454,16 +487,13 @@
             if (mediaRecorder && mediaRecorder.state !== 'inactive' && triggerStop) {
                 mediaRecorder.stop();
             } else {
-                // If stop was not triggered (e.g., error case), we need to manually clean up streams and UI
+                // Manual cleanup if stop() wasn't called (e.g., error case)
                 stopStream(screenStream);
                 stopStream(cameraStream);
                 stopStream(micStream);
                 stopTimer();
-                livePreview.srcObject = null;
-                cameraPreview.srcObject = null;
-                livePreview.src = ''; // Clear video source
-                livePreview.controls = false; // Ensure controls are off
-                livePreview.classList.remove('hidden'); // Ensure preview box stays
+                clearPreview();
+                
                 recordingState = 'idle';
                 updateUI();
             }
@@ -479,7 +509,6 @@
                 recordButton.disabled = true;
                 recordButton.textContent = 'Preparing...';
                 
-                // Ensure at least one source is selected
                 if (!screenToggle.checked && !cameraToggle.checked) {
                     errorMessage.textContent = "Please select at least Screen or Webcam to begin recording.";
                     errorMessage.classList.remove('hidden');
@@ -488,24 +517,24 @@
                     return;
                 }
 
-                // If recording a new video, clear the previous finished video source
-                livePreview.src = '';
-                livePreview.controls = false;
+                // Clear any previous artifacts
+                clearPreview();
+                conversionStatus.classList.add('hidden');
+                downloadButton.textContent = 'Download MP4 Video';
 
                 try {
                     const stream = await acquireStreams();
                     startRecording(stream);
                 } catch (error) {
-                    // This catches the specific error thrown in acquireStreams()
-                    errorMessage.textContent = error.message;
-                    errorMessage.classList.remove('hidden');
-                    // Ensure streams are cleaned up and state is reset
+                    // Cleanup and show error message
                     stopStream(screenStream);
                     stopStream(cameraStream);
                     stopStream(micStream);
-                    screenStream = null;
-                    cameraStream = null;
-                    micStream = null;
+                    clearPreview();
+                    
+                    errorMessage.textContent = error.message;
+                    errorMessage.classList.remove('hidden');
+                    
                     recordingState = 'idle';
                     updateUI();
                 }
@@ -528,10 +557,35 @@
                     mediaRecorder.resume();
                     recordingState = 'recording';
                     pauseButton.textContent = 'Pause';
-                    startTimer(); // Restart timer logic
+                    startTimer(); 
                 }
                 updateUI();
             }
+        }
+        
+        /**
+         * Handles the final download of the MP4 (or fallback WebM) file.
+         */
+        function downloadRecording() {
+            if (!finalMp4Blob) {
+                errorMessage.textContent = "Error: Video data is not ready for download.";
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            const isMp4 = finalMp4Blob.type === 'video/mp4';
+            const extension = isMp4 ? 'mp4' : 'webm';
+            const mimeType = isMp4 ? 'video/mp4' : 'video/webm';
+            
+            const url = URL.createObjectURL(finalMp4Blob);
+            const a = document.createElement('a');
+            
+            a.href = url;
+            a.download = `recording-${new Date().toISOString().slice(0, 10)}.${extension}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
         // Initialize UI on load
