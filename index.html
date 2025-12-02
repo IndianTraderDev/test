@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Free Screen Recorder - Screen & Camera Recorder</title>
+    <title>ScreenApp Clone - Screen & Camera Recorder</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -84,19 +84,19 @@
                     <!-- Screen Toggle -->
                     <label class="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm cursor-pointer hover:bg-indigo-50 transition duration-150">
                         <span class="font-medium text-gray-700">Screen Sharing</span>
-                        <input type="checkbox" id="screenToggle" checked class="h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500 focus:ring-offset-2">
+                        <input type="checkbox" id="screenToggle" checked class="h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500 focus:border-indigo-500">
                     </label>
 
                     <!-- Camera Toggle -->
                     <label class="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm cursor-pointer hover:bg-indigo-500 transition duration-150">
                         <span class="font-medium text-gray-700">Webcam Feed (Draggable)</span>
-                        <input type="checkbox" id="cameraToggle" class="h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500 focus:ring-offset-2">
+                        <input type="checkbox" id="cameraToggle" class="h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500 focus:border-indigo-500">
                     </label>
 
                     <!-- Microphone Toggle -->
                     <label class="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm cursor-pointer hover:bg-indigo-500 transition duration-150">
                         <span class="font-medium text-gray-700">Microphone Audio</span>
-                        <input type="checkbox" id="micToggle" class="h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500 focus:ring-offset-2">
+                        <input type="checkbox" id="micToggle" class="h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500 focus:border-indigo-500">
                     </label>
                 </div>
 
@@ -240,6 +240,7 @@
         let startTime = 0;
         let finalMp4Blob = null; // Stores the converted MP4 Blob
         let isAnnotating = false; // State for the annotation feature
+        let stopTimeout = null; // Used for the stop button fallback
 
         // DOM elements
         const recordButton = document.getElementById('recordButton');
@@ -309,6 +310,24 @@
         }
 
         /**
+         * Performs reliable cleanup and resets the state to 'idle'.
+         */
+        function cleanupAndReset() {
+            stopStream(screenStream);
+            stopStream(cameraStream);
+            stopStream(micStream);
+            stopTimer();
+            clearPreview();
+            
+            // Critical state reset
+            recordingState = 'idle';
+            updateUI();
+            
+            // Ensure conversion status is hidden on reset
+            conversionStatus.classList.add('hidden');
+        }
+
+        /**
          * Updates the UI based on the current recording state, carefully preserving
          * the finished video preview if it exists.
          */
@@ -368,7 +387,8 @@
 
             // --- Button and Toggle State ---
 
-            recordButton.disabled = isRecordingActive;
+            // The record button should only be disabled if a process (recording/counting) is currently active
+            recordButton.disabled = isRecordingActive; 
             if (recordingState === 'idle' || recordingState === 'counting') {
                 recordButton.textContent = (recordingState === 'counting') ? 'Preparing...' : 'Start Recording';
                 recordButton.classList.replace('bg-green-600', 'bg-red-600');
@@ -606,6 +626,7 @@
 
         /**
          * Starts the 3-2-1 countdown before actual recording begins.
+         * @param {MediaStream} stream - The combined stream to record.
          */
         function startCountdown(stream) {
             recordingState = 'counting';
@@ -621,9 +642,20 @@
                 } else if (count === 0) {
                     countdownOverlay.textContent = 'GO';
                 } else {
+                    // Count is now -1, time to start recording
                     clearInterval(countdownTimer);
                     countdownOverlay.classList.add('hidden');
-                    startRecording(stream);
+                    
+                    try {
+                         startRecording(stream);
+                    } catch (e) {
+                        console.error("Failed to start recording after countdown:", e);
+                        // CRITICAL: If startRecording fails, ensure full cleanup
+                        stopStream(stream); 
+                        errorMessage.textContent = `Recording start failed after countdown: ${e.message || e.name}.`;
+                        errorMessage.classList.remove('hidden');
+                        cleanupAndReset(); 
+                    }
                 }
             }, 1000);
         }
@@ -653,7 +685,6 @@
                 videoConstraints.height = { ideal: height };
             } else {
                 // If 'max' is selected, omit width/height constraints for getDisplayMedia
-                // This typically defaults to the native screen resolution.
             }
 
             if (!isScreenSelected && !isCameraSelected) {
@@ -663,10 +694,8 @@
             try {
                 // 1. Acquire Screen Stream
                 if (isScreenSelected) {
-                    // For screen sharing, we apply constraints but if 'max' is selected, 
-                    // we rely on the browser to give us the best stream without explicit resolution limits.
                     screenStream = await navigator.mediaDevices.getDisplayMedia({
-                        video: videoConstraints // Constraints are still passed, but without width/height for 'max'
+                        video: videoConstraints 
                     });
                     livePreview.srcObject = screenStream;
                     livePreview.load();
@@ -676,8 +705,6 @@
 
                 // 2. Acquire Camera Stream
                 if (isCameraSelected) {
-                    // Camera feed will always try to use its ideal frame rate, 
-                    // but we won't try to enforce screen resolution on the camera stream
                     cameraStream = await navigator.mediaDevices.getUserMedia({
                         video: { frameRate: { ideal: fps, max: fps } }
                     });
@@ -760,6 +787,8 @@
                     userMessage = "No camera or microphone devices found.";
                 }
 
+                // CRITICAL: Ensure streams are cleaned up and state is reset on error
+                cleanupAndReset(); 
                 throw new Error(userMessage + (error.name ? ` (Error Type: ${error.name})` : ''));
             }
         }
@@ -772,6 +801,9 @@
             recordedChunks = [];
             // Use vp9 codec for better quality if available
             mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9,opus' });
+            
+            // Timeout to trigger manual stop if the browser's onstop event fails to fire
+            let conversionTimeout = null; 
 
             mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
@@ -780,12 +812,8 @@
             };
 
             mediaRecorder.onstop = async () => {
-                // Perform cleanup
-                stopStream(screenStream);
-                stopStream(cameraStream);
-                stopStream(micStream);
-                stopTimer();
-                clearPreview();
+                // Clear the manual fallback timeout as the event fired successfully
+                clearTimeout(conversionTimeout); 
                 
                 // 1. Create WebM blob from chunks
                 const webmBlob = new Blob(recordedChunks, { type: 'video/webm' });
@@ -801,7 +829,6 @@
                     const mp4Blob = await converter.convert(webmBlob, {
                         audio: true,
                         video: true,
-                        // Ensure the blob is not too large for the conversion process
                         maxFileSize: 1024 * 1024 * 1024 // 1GB
                     });
 
@@ -822,8 +849,7 @@
 
                     // 5. Update UI for finished state
                     conversionStatus.classList.add('hidden');
-                    recordingState = 'idle';
-                    updateUI();
+                    cleanupAndReset(); // Final cleanup after conversion/preview is set
 
                 } catch (error) {
                     console.error("MP4 Conversion Failed:", error);
@@ -847,8 +873,7 @@
                         trimEndTime.textContent = formatTime(durationMs);
                     };
 
-                    recordingState = 'idle';
-                    updateUI();
+                    cleanupAndReset();
                 }
             };
             
@@ -856,16 +881,35 @@
                 console.error('MediaRecorder error:', e);
                 errorMessage.textContent = `Recording failed: ${e.error.name}. Try selecting different sources.`;
                 errorMessage.classList.remove('hidden');
-                stopRecording(false); 
+                stopRecording(false); // Manually stop without triggering mediaRecorder.stop() again
             };
 
+            try {
+                // Set the fallback timeout *before* starting the recording
+                conversionTimeout = setTimeout(() => {
+                    console.warn("MediaRecorder.stop() event failed to fire after 5 seconds. Forcing manual stop.");
+                    // This function handles cleanup and state reset if onstop doesn't fire.
+                    cleanupAndReset(); 
+                    errorMessage.textContent = "Recording unexpectedly stopped or failed to finalize. State has been reset.";
+                    errorMessage.classList.remove('hidden');
+                }, 5000); // 5 second fallback
 
-            mediaRecorder.start(1000); 
-            recordingState = 'recording';
-            livePreview.muted = true; 
-            livePreview.controls = false; 
-            updateUI();
-            startTimer();
+                mediaRecorder.start(1000); 
+                recordingState = 'recording';
+                livePreview.muted = true; 
+                livePreview.controls = false; 
+                updateUI();
+                startTimer();
+            } catch (e) {
+                // CRITICAL: Protection against failure on start()
+                console.error("Error starting MediaRecorder:", e);
+                clearTimeout(conversionTimeout); // Clear the timeout if we failed before it started
+                stopStream(stream); 
+                recordingState = 'idle';
+                updateUI();
+                errorMessage.textContent = `Recording start failed: ${e.message || e.name}. Please try again.`;
+                errorMessage.classList.remove('hidden');
+            }
         }
 
         /**
@@ -876,15 +920,8 @@
             if (mediaRecorder && mediaRecorder.state !== 'inactive' && triggerStop) {
                 mediaRecorder.stop();
             } else {
-                // Manual cleanup if stop() wasn't called (e.g., error case)
-                stopStream(screenStream);
-                stopStream(cameraStream);
-                stopStream(micStream);
-                stopTimer();
-                clearPreview();
-                
-                recordingState = 'idle';
-                updateUI();
+                // If triggerStop is false (e.g., called from onerror), just clean up manually.
+                cleanupAndReset();
             }
         }
         
@@ -916,15 +953,12 @@
                     // Start countdown instead of recording directly
                     startCountdown(stream); 
                 } catch (error) {
-                    // Cleanup and show error message
-                    stopStream(screenStream);
-                    stopStream(cameraStream);
-                    stopStream(micStream);
-                    clearPreview();
-                    
-                    errorMessage.textContent = error.message;
-                    errorMessage.classList.remove('hidden');
-                    
+                    // acquireStreams already called cleanupAndReset on failure.
+                    // Just ensure the error message is displayed.
+                    if (error.message) {
+                        errorMessage.textContent = error.message;
+                        errorMessage.classList.remove('hidden');
+                    }
                     recordingState = 'idle';
                     updateUI();
                 }
