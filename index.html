@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScreenApp Clone - Screen & Camera Recorder</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        /* Custom scrollbar for the controls panel */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #a0aec0;
+            border-radius: 3px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #edf2f7;
+        }
+        /* Style for the video player container */
+        #previewContainer {
+            min-height: 250px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <div class="max-w-4xl mx-auto bg-white shadow-xl rounded-xl p-6 md:p-10">
+
+        <!-- Header -->
+        <header class="mb-8">
+            <h1 class="text-3xl font-extrabold text-gray-800 flex items-center">
+                <svg class="w-8 h-8 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                Screen Recorder
+            </h1>
+            <p class="text-gray-500 mt-2">Capture your screen, camera, and microphone in one click.</p>
+        </header>
+
+        <!-- Configuration and Controls -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+
+            <!-- Configuration Panel -->
+            <div id="configPanel" class="lg:col-span-1 bg-gray-50 p-5 rounded-lg border border-gray-200 custom-scroll overflow-y-auto max-h-[300px]">
+                <h2 class="text-lg font-semibold text-gray-700 mb-4">Capture Sources</h2>
+                <div class="space-y-4">
+                    <!-- Screen Toggle -->
+                    <label class="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm cursor-pointer hover:bg-indigo-50 transition duration-150">
+                        <span class="font-medium text-gray-700">Screen Sharing</span>
+                        <input type="checkbox" id="screenToggle" checked class="h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500 focus:ring-offset-2">
+                    </label>
+
+                    <!-- Camera Toggle -->
+                    <label class="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm cursor-pointer hover:bg-indigo-50 transition duration-150">
+                        <span class="font-medium text-gray-700">Webcam Feed</span>
+                        <input type="checkbox" id="cameraToggle" class="h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500 focus:ring-offset-2">
+                    </label>
+
+                    <!-- Microphone Toggle -->
+                    <label class="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm cursor-pointer hover:bg-indigo-50 transition duration-150">
+                        <span class="font-medium text-gray-700">Microphone Audio</span>
+                        <input type="checkbox" id="micToggle" class="h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500 focus:ring-offset-2">
+                    </label>
+                </div>
+
+                <!-- Status Message -->
+                <div id="statusMessage" class="mt-4 p-2 text-sm text-center rounded-lg hidden"></div>
+            </div>
+
+            <!-- Controls and Timer -->
+            <div class="lg:col-span-2 flex flex-col justify-center items-center p-5 bg-indigo-50 rounded-lg border-2 border-indigo-200">
+                <div id="timerDisplay" class="text-5xl font-mono font-bold text-gray-800 mb-6">00:00:00</div>
+
+                <div class="flex space-x-4">
+                    <!-- Start/Stop Button -->
+                    <button id="recordButton" class="px-8 py-3 text-white font-bold rounded-full shadow-lg transition duration-300 transform active:scale-95 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:shadow-none" onclick="toggleRecording()">
+                        Start Recording
+                    </button>
+
+                    <!-- Pause/Resume Button (Hidden initially) -->
+                    <button id="pauseButton" class="px-6 py-3 text-white font-bold rounded-full shadow-lg transition duration-300 transform active:scale-95 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 disabled:shadow-none hidden" onclick="togglePause()">
+                        Pause
+                    </button>
+                </div>
+
+                <!-- Error Message -->
+                <p id="errorMessage" class="text-red-600 mt-4 text-sm text-center hidden"></p>
+            </div>
+        </div>
+
+        <!-- Video Preview and Download Section -->
+        <div class="mt-8 p-6 bg-gray-100 rounded-xl shadow-inner">
+            <h2 class="text-xl font-bold text-gray-700 mb-4">Output Preview</h2>
+            
+            <div id="previewContainer" class="relative bg-gray-300 rounded-lg overflow-hidden w-full aspect-video">
+                <video id="livePreview" autoplay muted class="absolute inset-0 w-full h-full object-contain bg-black"></video>
+                <div id="initialMessage" class="absolute inset-0 flex items-center justify-center text-gray-600 text-lg font-medium p-4 bg-white/80 backdrop-blur-sm">
+                    Select your sources and click "Start Recording"
+                </div>
+                <!-- Camera Feed (as Picture-in-Picture style overlay) -->
+                <video id="cameraPreview" autoplay muted class="absolute top-3 right-3 w-40 h-auto rounded-lg shadow-xl border-2 border-white object-cover hidden"></video>
+            </div>
+            
+            <!-- Download Button (Hidden until recording is complete) -->
+            <div id="downloadArea" class="mt-4 flex justify-center hidden">
+                <button id="downloadButton" class="px-6 py-3 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition duration-150 transform active:scale-95" onclick="downloadRecording()">
+                    <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Download Video
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // State variables
+        let mediaRecorder;
+        let recordedChunks = [];
+        let screenStream = null;
+        let cameraStream = null;
+        let micStream = null;
+        let recordingState = 'idle'; // 'idle', 'recording', 'paused'
+        let timerInterval = null;
+        let startTime = 0;
+
+        // DOM elements
+        const recordButton = document.getElementById('recordButton');
+        const pauseButton = document.getElementById('pauseButton');
+        const downloadButton = document.getElementById('downloadButton');
+        const livePreview = document.getElementById('livePreview');
+        const cameraPreview = document.getElementById('cameraPreview');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const initialMessage = document.getElementById('initialMessage');
+        const downloadArea = document.getElementById('downloadArea');
+        const errorMessage = document.getElementById('errorMessage');
+
+        // Configuration Toggles
+        const screenToggle = document.getElementById('screenToggle');
+        const cameraToggle = document.getElementById('cameraToggle');
+        const micToggle = document.getElementById('micToggle');
+
+        // --- Utility Functions ---
+
+        /**
+         * Safely stops all tracks in a MediaStream.
+         * @param {MediaStream | null} stream 
+         */
+        function stopStream(stream) {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        }
+
+        /**
+         * Updates the UI based on the current recording state.
+         */
+        function updateUI() {
+            downloadArea.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+            initialMessage.classList.add('hidden');
+            
+            const isRecording = recordingState !== 'idle';
+            const isPaused = recordingState === 'paused';
+            
+            // Toggle visibility/text for main buttons
+            recordButton.disabled = false;
+            if (recordingState === 'idle') {
+                recordButton.textContent = 'Start Recording';
+                recordButton.classList.replace('bg-green-600', 'bg-red-600');
+                recordButton.classList.replace('hover:bg-green-700', 'hover:bg-red-700');
+                pauseButton.classList.add('hidden');
+                initialMessage.classList.remove('hidden');
+            } else if (recordingState === 'recording') {
+                recordButton.textContent = 'Stop Recording';
+                recordButton.classList.replace('bg-red-600', 'bg-green-600');
+                recordButton.classList.replace('hover:bg-red-700', 'hover:bg-green-700');
+                pauseButton.textContent = 'Pause';
+                pauseButton.classList.remove('hidden');
+            } else if (recordingState === 'paused') {
+                recordButton.textContent = 'Stop Recording';
+                pauseButton.textContent = 'Resume';
+            }
+
+            // Disable toggles when recording is active
+            screenToggle.disabled = isRecording;
+            cameraToggle.disabled = isRecording;
+            micToggle.disabled = isRecording;
+
+            // Update pause button state
+            if (isRecording) {
+                pauseButton.classList.remove('hidden');
+            } else if (recordingState === 'idle') {
+                pauseButton.classList.add('hidden');
+                cameraPreview.classList.add('hidden'); // Hide camera preview when idle
+            }
+        }
+
+        /**
+         * Formats milliseconds into HH:MM:SS string.
+         * @param {number} ms - time in milliseconds
+         * @returns {string} Formatted time string
+         */
+        function formatTime(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+
+            const pad = (num) => String(num).padStart(2, '0');
+            return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+        }
+
+        /**
+         * Starts the timer.
+         */
+        function startTimer() {
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                timerDisplay.textContent = formatTime(elapsed);
+            }, 1000);
+        }
+
+        /**
+         * Stops and resets the timer.
+         */
+        function stopTimer() {
+            clearInterval(timerInterval);
+            timerDisplay.textContent = '00:00:00';
+        }
+
+        // --- Core Recording Logic ---
+
+        /**
+         * Acquires all selected media streams (screen, camera, mic).
+         */
+        async function acquireStreams() {
+            const streams = [];
+            const isScreenSelected = screenToggle.checked;
+            const isCameraSelected = cameraToggle.checked;
+            const isMicSelected = micToggle.checked;
+
+            if (!isScreenSelected && !isCameraSelected) {
+                throw new Error("You must select at least Screen or Webcam to record video.");
+            }
+
+            try {
+                // 1. Acquire Screen Stream
+                if (isScreenSelected) {
+                    // Use getDisplayMedia for screen sharing
+                    screenStream = await navigator.mediaDevices.getDisplayMedia({
+                        video: true
+                    });
+                    streams.push(screenStream);
+                    livePreview.srcObject = screenStream;
+                    livePreview.load();
+                } else {
+                    // If only camera is selected, use it for the main preview
+                    livePreview.srcObject = null;
+                }
+
+                // 2. Acquire Camera Stream
+                if (isCameraSelected) {
+                    // Use getUserMedia for camera feed
+                    cameraStream = await navigator.mediaDevices.getUserMedia({
+                        video: true
+                    });
+
+                    // If screen is also active, camera is the picture-in-picture overlay
+                    if (isScreenSelected) {
+                        cameraPreview.srcObject = cameraStream;
+                        cameraPreview.classList.remove('hidden');
+                        cameraPreview.load();
+                    } else {
+                        // If only camera is selected, it is the main preview
+                        livePreview.srcObject = cameraStream;
+                        livePreview.load();
+                        cameraPreview.classList.add('hidden');
+                    }
+                    streams.push(cameraStream);
+                } else {
+                    cameraPreview.classList.add('hidden');
+                }
+
+                // 3. Acquire Microphone Stream and merge audio
+                if (isMicSelected) {
+                    micStream = await navigator.mediaDevices.getUserMedia({
+                        audio: true
+                    });
+                }
+                
+                // 4. Combine all streams into one stream for recording
+                const combinedStream = new MediaStream();
+
+                // Add video track (from screen or camera)
+                const videoTrack = (screenStream || cameraStream).getVideoTracks()[0];
+                if (videoTrack) {
+                    combinedStream.addTrack(videoTrack);
+                }
+
+                // Add audio track (prioritize screen/camera audio if available, otherwise use mic)
+                let audioTrack = null;
+
+                // 4a. Get system audio from screen sharing (if selected)
+                if (screenStream) {
+                    audioTrack = screenStream.getAudioTracks()[0];
+                }
+
+                // 4b. If no system audio, use microphone audio (if selected)
+                if (!audioTrack && micStream) {
+                    audioTrack = micStream.getAudioTracks()[0];
+                }
+
+                // Add the resulting audio track
+                if (audioTrack) {
+                    combinedStream.addTrack(audioTrack);
+                }
+                
+                // When the screen share stops externally (e.g., user clicks 'Stop Sharing' in browser dialog)
+                if (screenStream) {
+                    screenStream.getVideoTracks()[0].onended = () => {
+                        if (recordingState === 'recording') {
+                            stopRecording();
+                            errorMessage.textContent = "Screen sharing stopped by the user.";
+                            errorMessage.classList.remove('hidden');
+                        }
+                    };
+                }
+
+                return combinedStream;
+
+            } catch (error) {
+                // Error handling for permissions or no devices
+                console.error("Error acquiring media streams:", error);
+                throw new Error("Could not access media devices. Please check permissions and device availability. " + (error.name ? `Error: ${error.name}` : ''));
+            }
+        }
+
+        /**
+         * Starts the MediaRecorder.
+         * @param {MediaStream} stream - The combined stream to record.
+         */
+        function startRecording(stream) {
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp8,opus' });
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                // Stop all tracks when recording finishes
+                stopStream(screenStream);
+                stopStream(cameraStream);
+                stopStream(micStream);
+                screenStream = null;
+                cameraStream = null;
+                micStream = null;
+                
+                stopTimer();
+                livePreview.srcObject = null;
+                cameraPreview.srcObject = null;
+                
+                // Create the download link/button
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const videoUrl = URL.createObjectURL(blob);
+                
+                // Set the finished video as the preview source
+                livePreview.src = videoUrl;
+                livePreview.muted = false; // Unmute finished video
+                livePreview.controls = true; // Show controls on finished video
+                livePreview.classList.remove('hidden');
+
+                downloadButton.onclick = () => {
+                    const a = document.createElement('a');
+                    a.href = videoUrl;
+                    a.download = `recording-${new Date().toISOString().slice(0, 10)}.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    // Revoke the object URL after download
+                    URL.revokeObjectURL(videoUrl);
+                };
+
+                downloadArea.classList.remove('hidden');
+                recordingState = 'idle';
+                updateUI();
+            };
+            
+            mediaRecorder.onerror = (e) => {
+                console.error('MediaRecorder error:', e);
+                errorMessage.textContent = `Recording failed: ${e.error.name}. Try selecting different sources.`;
+                errorMessage.classList.remove('hidden');
+                // Ensure everything stops on error
+                stopRecording(false); 
+            };
+
+
+            mediaRecorder.start(1000); // Collect data every 1 second
+            recordingState = 'recording';
+            livePreview.muted = true; // Mute live preview
+            livePreview.controls = false; // Hide controls on live preview
+            updateUI();
+            startTimer();
+        }
+
+        /**
+         * Stops the recording process.
+         * @param {boolean} triggerStop - Whether to trigger mediaRecorder.stop() (default: true).
+         */
+        function stopRecording(triggerStop = true) {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive' && triggerStop) {
+                mediaRecorder.stop();
+            } else {
+                // If stop was not triggered (e.g., error case), we need to manually clean up streams and UI
+                stopStream(screenStream);
+                stopStream(cameraStream);
+                stopStream(micStream);
+                stopTimer();
+                livePreview.srcObject = null;
+                cameraPreview.srcObject = null;
+                livePreview.src = ''; // Clear video source
+                livePreview.classList.remove('hidden'); // Ensure preview box stays
+                recordingState = 'idle';
+                updateUI();
+            }
+        }
+        
+        // --- Button Handlers ---
+
+        /**
+         * Main handler to start or stop the recording.
+         */
+        async function toggleRecording() {
+            if (recordingState === 'idle') {
+                recordButton.disabled = true;
+                recordButton.textContent = 'Preparing...';
+                
+                // Ensure at least one source is selected
+                if (!screenToggle.checked && !cameraToggle.checked) {
+                    errorMessage.textContent = "Please select at least Screen or Webcam to begin recording.";
+                    errorMessage.classList.remove('hidden');
+                    recordButton.disabled = false;
+                    recordButton.textContent = 'Start Recording';
+                    return;
+                }
+
+                try {
+                    const stream = await acquireStreams();
+                    startRecording(stream);
+                } catch (error) {
+                    errorMessage.textContent = error.message;
+                    errorMessage.classList.remove('hidden');
+                    recordingState = 'idle';
+                    updateUI();
+                }
+            } else if (recordingState === 'recording' || recordingState === 'paused') {
+                stopRecording();
+            }
+        }
+
+        /**
+         * Handler to pause or resume the recording.
+         */
+        function togglePause() {
+            if (mediaRecorder) {
+                if (recordingState === 'recording') {
+                    mediaRecorder.pause();
+                    recordingState = 'paused';
+                    pauseButton.textContent = 'Resume';
+                    clearInterval(timerInterval);
+                } else if (recordingState === 'paused') {
+                    mediaRecorder.resume();
+                    recordingState = 'recording';
+                    pauseButton.textContent = 'Pause';
+                    startTimer(); // Restart timer logic
+                }
+                updateUI();
+            }
+        }
+
+        // Initialize UI on load
+        window.onload = updateUI;
+    </script>
+</body>
+</html>
