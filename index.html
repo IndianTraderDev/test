@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ScreenApp Clone - Screen & Camera Recorder</title>
+    <title>Free ScreenRecorder App - Screen & Camera Recorder</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     
     <!-- Client-side WebM to MP4 Conversion Library (for browser compatibility) -->
+    <!-- NOTE: This is required to satisfy the MP4 download request using client-side conversion. -->
     <script src="https://cdn.jsdelivr.net/npm/ts-ebml@2.0.2/ts-ebml.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/webm-to-mp4@1.0.0/dist/webm-to-mp4.min.js"></script>
 
@@ -36,29 +37,6 @@
             justify-content: center;
             position: relative;
         }
-        /* Styling for the draggable/resizable camera preview */
-        #cameraPreview {
-            cursor: move; /* Indicate draggability */
-            resize: both; /* Allow visual resizing */
-            overflow: hidden; /* Prevent resize handles from showing outside */
-            min-width: 80px;
-            min-height: 45px;
-            max-width: 80%;
-            max-height: 80%;
-        }
-        /* Countdown overlay styling */
-        #countdownOverlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 8rem;
-            font-weight: bold;
-            z-index: 10;
-        }
     </style>
 </head>
 <body class="p-4 sm:p-8">
@@ -71,7 +49,7 @@
                 <svg class="w-8 h-8 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                 Screen Recorder
             </h1>
-            <p class="text-gray-500 mt-2">Capture your screen, camera, and microphone in one click. Now includes editing features.</p>
+            <p class="text-gray-500 mt-2">Capture your screen, camera, and microphone in one click. Now downloads in MP4 format.</p>
         </header>
 
         <!-- Configuration and Controls -->
@@ -84,39 +62,20 @@
                     <!-- Screen Toggle -->
                     <label class="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm cursor-pointer hover:bg-indigo-50 transition duration-150">
                         <span class="font-medium text-gray-700">Screen Sharing</span>
-                        <input type="checkbox" id="screenToggle" checked class="h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500 focus:border-indigo-500">
+                        <input type="checkbox" id="screenToggle" checked class="h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500 focus:ring-offset-2">
                     </label>
 
                     <!-- Camera Toggle -->
-                    <label class="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm cursor-pointer hover:bg-indigo-500 transition duration-150">
-                        <span class="font-medium text-gray-700">Webcam Feed (Draggable)</span>
-                        <input type="checkbox" id="cameraToggle" class="h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500 focus:border-indigo-500">
+                    <label class="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm cursor-pointer hover:bg-indigo-50 transition duration-150">
+                        <span class="font-medium text-gray-700">Webcam Feed</span>
+                        <input type="checkbox" id="cameraToggle" class="h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500 focus:ring-offset-2">
                     </label>
 
                     <!-- Microphone Toggle -->
-                    <label class="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm cursor-pointer hover:bg-indigo-500 transition duration-150">
+                    <label class="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm cursor-pointer hover:bg-indigo-50 transition duration-150">
                         <span class="font-medium text-gray-700">Microphone Audio</span>
-                        <input type="checkbox" id="micToggle" class="h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500 focus:border-indigo-500">
+                        <input type="checkbox" id="micToggle" class="h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500 focus:ring-offset-2">
                     </label>
-                </div>
-
-                <h2 class="text-lg font-semibold text-gray-700 mt-6 mb-3 border-t pt-4">Quality Settings</h2>
-                
-                <!-- Resolution Selection -->
-                <div class="mb-4">
-                    <label for="resolutionSelect" class="block text-sm font-medium text-gray-700 mb-1">Video Resolution</label>
-                    <select id="resolutionSelect" class="w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-                        <option value="max">Native Screen Resolution</option>
-                        <option value="1920x1080">1080p (1920x1080)</option>
-                        <option value="1280x720" selected>720p (1280x720)</option>
-                        <option value="854x480">480p (854x480)</option>
-                    </select>
-                </div>
-
-                <!-- Frame Rate Input -->
-                <div>
-                    <label for="fpsInput" class="block text-sm font-medium text-gray-700 mb-1">Frame Rate (FPS)</label>
-                    <input type="number" id="fpsInput" value="30" min="15" max="60" class="w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g. 30">
                 </div>
 
                 <!-- Status Message -->
@@ -151,77 +110,19 @@
             <h2 class="text-xl font-bold text-gray-700 mb-4">Output Preview</h2>
             
             <div id="previewContainer" class="relative bg-gray-300 rounded-lg overflow-hidden w-full aspect-video">
-                <!-- 3-2-1 Countdown Overlay -->
-                <div id="countdownOverlay" class="hidden">3</div>
-
                 <video id="livePreview" autoplay muted class="absolute inset-0 w-full h-full object-contain bg-black"></video>
                 <div id="initialMessage" class="absolute inset-0 flex items-center justify-center text-gray-600 text-lg font-medium p-4 bg-white/80 backdrop-blur-sm">
                     Select your sources and click "Start Recording"
                 </div>
-                <!-- Camera Feed (draggable and resizable overlay) -->
-                <video id="cameraPreview" autoplay muted class="absolute top-3 right-3 w-40 h-auto rounded-lg shadow-xl border-2 border-white object-cover hidden" style="width: 160px; height: 90px;"></video>
-                
-                <!-- Annotation Canvas Overlay (z-index 20 ensures it's above the video) -->
-                <!-- The canvas is sized via JS to match the video resolution for accurate drawing -->
-                <canvas id="annotationCanvas" class="absolute inset-0 z-20 hidden"></canvas>
+                <!-- Camera Feed (as Picture-in-Picture style overlay) -->
+                <video id="cameraPreview" autoplay muted class="absolute top-3 right-3 w-40 h-auto rounded-lg shadow-xl border-2 border-white object-cover hidden"></video>
             </div>
             
-            <!-- Download Button (Hidden until recording is complete) - OLD, HIDDEN -->
+            <!-- Download Button (Hidden until recording is complete) -->
             <div id="downloadArea" class="mt-4 flex justify-center hidden">
                 <button id="downloadButton" class="px-6 py-3 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition duration-150 transform active:scale-95" onclick="downloadRecording()">
                     <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                     Download MP4 Video
-                </button>
-            </div>
-
-            <!-- Post-Capture Editor (New Area) -->
-            <div id="editorArea" class="mt-4 hidden p-4 bg-white border border-gray-200 rounded-xl shadow-md">
-                <h3 class="text-xl font-bold text-gray-700 mb-4 border-b pb-2">Post-Capture Editor</h3>
-                
-                <!-- Editor Controls -->
-                <div class="flex space-x-4 mb-4">
-                    <button id="trimButton" class="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:bg-gray-400 transition duration-150" onclick="toggleTrimmingUI()">
-                        <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.072a1 1 0 00-1.14 0l-3.197 2.072A1 1 0 006 12.06v5.88a1 1 0 001 1h10a1 1 0 001-1v-5.88a1 1 0 00-.511-.892zM12 4v7"></path></svg>
-                        Trim Video (UI Mock)
-                    </button>
-                    <button id="annotateButton" class="px-4 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition duration-150" onclick="toggleAnnotationMode()">
-                         <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                        Start Annotating
-                    </button>
-                </div>
-
-                <!-- Trimmer UI Mockup -->
-                <div id="trimmerUI" class="p-4 border border-indigo-300 rounded-lg bg-indigo-50 hidden mb-4">
-                    <p class="text-sm text-indigo-800 font-semibold mb-2">Trimmer Control (Conceptual Feature)</p>
-                    <p class="text-xs text-indigo-700">Client-side frame-accurate trimming is highly resource-intensive and not currently supported by the browser-based converter. This is a visual placeholder.</p>
-                    
-                    <label for="trimStart" class="block text-sm font-medium text-indigo-800 mt-3">Trim Start: <span id="trimStartTime">00:00:00</span></label>
-                    <input type="range" id="trimStart" min="0" max="1000" value="0" class="w-full h-2 bg-indigo-200 rounded-lg appearance-none cursor-pointer">
-                    
-                    <label for="trimEnd" class="block text-sm font-medium text-indigo-800 mt-3">Trim End: <span id="trimEndTime">00:00:00</span></label>
-                    <input type="range" id="trimEnd" min="0" max="1000" value="1000" class="w-full h-2 bg-indigo-200 rounded-lg appearance-none cursor-pointer">
-                </div>
-                
-                <!-- Annotation Tools (Shown only during annotation) -->
-                <div id="annotationTools" class="flex flex-wrap items-center space-x-4 mb-4 p-3 bg-pink-100 rounded-lg hidden">
-                    <div class="flex items-center space-x-2">
-                        <span class="font-medium text-gray-700">Color:</span>
-                        <input type="color" id="colorPicker" value="#FF0000" class="h-8 w-8 rounded-md border-2 border-gray-300 cursor-pointer">
-                    </div>
-                    
-                    <div class="flex items-center space-x-2">
-                        <span class="font-medium text-gray-700">Stroke:</span>
-                        <input type="range" id="sizeSlider" min="2" max="20" value="5" class="w-20">
-                    </div>
-                    
-                    <button id="clearCanvasButton" class="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm transition duration-150" onclick="clearAnnotationCanvas()">Clear Drawing</button>
-                    <button id="exitAnnotationButton" class="px-3 py-1 bg-gray-500 text-white rounded-lg hover:bg-gray-600 text-sm transition duration-150" onclick="exitAnnotationMode()">Finish Drawing</button>
-                </div>
-
-                <!-- Final Action Button -->
-                <button id="finalDownloadButton" class="mt-4 px-6 py-3 w-full bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition duration-150 transform active:scale-95" onclick="downloadRecording()">
-                    <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                    Download Final MP4 Video
                 </button>
             </div>
         </div>
@@ -235,16 +136,15 @@
         let screenStream = null;
         let cameraStream = null;
         let micStream = null;
-        let recordingState = 'idle'; // 'idle', 'counting', 'recording', 'paused', 'editing'
+        let recordingState = 'idle'; // 'idle', 'recording', 'paused'
         let timerInterval = null;
         let startTime = 0;
         let finalMp4Blob = null; // Stores the converted MP4 Blob
-        let isAnnotating = false; // State for the annotation feature
-        let stopTimeout = null; // Used for the stop button fallback
 
         // DOM elements
         const recordButton = document.getElementById('recordButton');
         const pauseButton = document.getElementById('pauseButton');
+        const downloadButton = document.getElementById('downloadButton');
         const livePreview = document.getElementById('livePreview');
         const cameraPreview = document.getElementById('cameraPreview');
         const timerDisplay = document.getElementById('timerDisplay');
@@ -252,38 +152,11 @@
         const downloadArea = document.getElementById('downloadArea');
         const errorMessage = document.getElementById('errorMessage');
         const conversionStatus = document.getElementById('conversionStatus');
-        const countdownOverlay = document.getElementById('countdownOverlay');
-        const editorArea = document.getElementById('editorArea');
-        const finalDownloadButton = document.getElementById('finalDownloadButton');
-        
-        // Configuration Toggles/Inputs
+
+        // Configuration Toggles
         const screenToggle = document.getElementById('screenToggle');
         const cameraToggle = document.getElementById('cameraToggle');
         const micToggle = document.getElementById('micToggle');
-        const fpsInput = document.getElementById('fpsInput');
-        const resolutionSelect = document.getElementById('resolutionSelect');
-
-        // Editor Elements
-        const annotationCanvas = document.getElementById('annotationCanvas');
-        const annotationTools = document.getElementById('annotationTools');
-        const colorPicker = document.getElementById('colorPicker');
-        const sizeSlider = document.getElementById('sizeSlider');
-        const trimmerUI = document.getElementById('trimmerUI');
-        const trimStartTime = document.getElementById('trimStartTime');
-        const trimEndTime = document.getElementById('trimEndTime');
-
-
-        // Canvas context and drawing state
-        let ctx = annotationCanvas.getContext('2d');
-        let isDrawing = false;
-        let lastX = 0;
-        let lastY = 0;
-
-        // Dragging state for cameraPreview
-        let isDragging = false;
-        let offset = { x: 0, y: 0 };
-        const previewContainer = document.getElementById('previewContainer');
-
 
         // --- Utility Functions ---
 
@@ -306,25 +179,6 @@
             livePreview.src = ''; 
             livePreview.controls = false;
             finalMp4Blob = null;
-            ctx.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
-        }
-
-        /**
-         * Performs reliable cleanup and resets the state to 'idle'.
-         */
-        function cleanupAndReset() {
-            stopStream(screenStream);
-            stopStream(cameraStream);
-            stopStream(micStream);
-            stopTimer();
-            clearPreview();
-            
-            // Critical state reset
-            recordingState = 'idle';
-            updateUI();
-            
-            // Ensure conversion status is hidden on reset
-            conversionStatus.classList.add('hidden');
         }
 
         /**
@@ -334,7 +188,7 @@
         function updateUI() {
             errorMessage.classList.add('hidden');
             
-            const isRecordingActive = recordingState === 'recording' || recordingState === 'paused' || recordingState === 'counting';
+            const isRecording = recordingState !== 'idle';
             
             // Determine if a finished video is currently loaded for playback 
             const hasFinishedVideo = recordingState === 'idle' && finalMp4Blob !== null;
@@ -348,53 +202,27 @@
                 initialMessage.classList.add('hidden');
             }
             
-            // 2. Editor Area Visibility: Only show if a finished video is loaded.
+            // 2. Download Area Visibility: Only show if a finished video is loaded.
             if (hasFinishedVideo) {
-                editorArea.classList.remove('hidden');
-                downloadArea.classList.add('hidden'); 
-                
-                // If we're not currently annotating, ensure canvas is hidden
-                if (!isAnnotating) {
-                    annotationCanvas.classList.add('hidden');
-                    annotationTools.classList.add('hidden');
-                } else {
-                    annotationCanvas.classList.remove('hidden');
-                    annotationTools.classList.remove('hidden');
-                }
+                downloadArea.classList.remove('hidden');
             } else {
-                editorArea.classList.add('hidden');
                 downloadArea.classList.add('hidden');
-                annotationCanvas.classList.add('hidden');
-                isAnnotating = false;
             }
             
-            // 3. Hide camera preview when idle or counting
-            if (recordingState === 'idle' || recordingState === 'counting' || hasFinishedVideo) {
+            // 3. Hide camera preview when idle
+            if (recordingState === 'idle') {
                 cameraPreview.classList.add('hidden');
-            } else if (recordingState === 'recording' || recordingState === 'paused') {
-                if (cameraToggle.checked) {
-                    cameraPreview.classList.remove('hidden');
-                }
             }
 
-
-            // 4. Countdown overlay visibility
-            if (recordingState === 'counting') {
-                countdownOverlay.classList.remove('hidden');
-            } else {
-                countdownOverlay.classList.add('hidden');
-            }
 
             // --- Button and Toggle State ---
 
-            // The record button should only be disabled if a process (recording/counting) is currently active
-            recordButton.disabled = isRecordingActive; 
-            if (recordingState === 'idle' || recordingState === 'counting') {
-                recordButton.textContent = (recordingState === 'counting') ? 'Preparing...' : 'Start Recording';
+            recordButton.disabled = false;
+            if (recordingState === 'idle') {
+                recordButton.textContent = 'Start Recording';
                 recordButton.classList.replace('bg-green-600', 'bg-red-600');
                 recordButton.classList.replace('hover:bg-green-700', 'hover:bg-red-700');
                 pauseButton.classList.add('hidden');
-                recordButton.disabled = recordingState === 'counting'; // Disable during countdown
             } else if (recordingState === 'recording') {
                 recordButton.textContent = 'Stop Recording';
                 recordButton.classList.replace('bg-red-600', 'bg-green-600');
@@ -406,20 +234,10 @@
                 pauseButton.textContent = 'Resume';
             }
 
-            // Disable toggles and FPS/Resolution input when recording is active or editing is in progress
-            const isControlLocked = isRecordingActive || isAnnotating;
-            screenToggle.disabled = isControlLocked;
-            cameraToggle.disabled = isControlLocked;
-            micToggle.disabled = isControlLocked;
-            fpsInput.disabled = isControlLocked;
-            resolutionSelect.disabled = isControlLocked;
-            
-            // Editor button state
-            if (hasFinishedVideo) {
-                document.getElementById('trimButton').disabled = isAnnotating;
-                document.getElementById('annotateButton').disabled = isAnnotating;
-                finalDownloadButton.disabled = isAnnotating;
-            }
+            // Disable toggles when recording is active
+            screenToggle.disabled = isRecording;
+            cameraToggle.disabled = isRecording;
+            micToggle.disabled = isRecording;
         }
 
         /**
@@ -456,210 +274,7 @@
             timerDisplay.textContent = '00:00:00';
         }
 
-        // --- Camera Dragging/Resizing Logic ---
-
-        /**
-         * Initializes drag functionality for the camera preview.
-         */
-        function initializeCameraDrag() {
-            cameraPreview.addEventListener('mousedown', dragStart);
-            cameraPreview.style.position = 'absolute'; // Ensure absolute positioning for drag to work
-        }
-
-        function dragStart(e) {
-            // Only start drag if the user is not attempting to resize
-            if (e.target === cameraPreview) {
-                isDragging = true;
-                e.preventDefault();
-                
-                // Calculate cursor offset relative to element
-                const rect = cameraPreview.getBoundingClientRect();
-                offset.x = e.clientX - rect.left;
-                offset.y = e.clientY - rect.top;
-
-                // Add listeners to document to handle movement outside the element
-                document.addEventListener('mousemove', dragMove);
-                document.addEventListener('mouseup', dragEnd);
-            }
-        }
-
-        function dragMove(e) {
-            if (!isDragging) return;
-            e.preventDefault();
-
-            // Calculate new position
-            let newX = e.clientX - offset.x;
-            let newY = e.clientY - offset.y;
-
-            const containerRect = previewContainer.getBoundingClientRect();
-            const elementRect = cameraPreview.getBoundingClientRect();
-
-            // Clamping boundaries
-            newX = Math.max(containerRect.left, newX); // left clamp
-            newY = Math.max(containerRect.top, newY); // top clamp
-
-            newX = Math.min(containerRect.right - elementRect.width, newX); // right clamp
-            newY = Math.min(containerRect.bottom - elementRect.height, newY); // bottom clamp
-
-            // Apply new position using absolute values relative to parent container
-            cameraPreview.style.left = (newX - containerRect.left) + 'px';
-            cameraPreview.style.top = (newY - containerRect.top) + 'px';
-        }
-
-        function dragEnd() {
-            isDragging = false;
-            document.removeEventListener('mousemove', dragMove);
-            document.removeEventListener('mouseup', dragEnd);
-        }
-
-        // --- Annotation and Trimmer Logic ---
-
-        function setupCanvasDrawing() {
-            annotationCanvas.addEventListener('mousedown', startDrawing);
-            annotationCanvas.addEventListener('mousemove', draw);
-            annotationCanvas.addEventListener('mouseup', stopDrawing);
-            annotationCanvas.addEventListener('mouseout', stopDrawing);
-            
-            // For touch devices
-            annotationCanvas.addEventListener('touchstart', (e) => startDrawing(e.touches[0]));
-            annotationCanvas.addEventListener('touchmove', (e) => draw(e.touches[0]));
-            annotationCanvas.addEventListener('touchend', stopDrawing);
-            annotationCanvas.addEventListener('touchcancel', stopDrawing);
-        }
-
-        function startDrawing(e) {
-            if (!isAnnotating) return;
-            isDrawing = true;
-            [lastX, lastY] = getCanvasCoordinates(e);
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-        }
-
-        function draw(e) {
-            if (!isDrawing || !isAnnotating) return;
-            e.preventDefault(); // Prevent scrolling/panning on touch
-            
-            const [currentX, currentY] = getCanvasCoordinates(e);
-
-            ctx.strokeStyle = colorPicker.value;
-            ctx.lineWidth = sizeSlider.value;
-            ctx.lineCap = 'round';
-            
-            ctx.lineTo(currentX, currentY);
-            ctx.stroke();
-            
-            [lastX, lastY] = [currentX, currentY];
-        }
-
-        function stopDrawing() {
-            isDrawing = false;
-        }
-
-        function getCanvasCoordinates(e) {
-            // Get position relative to the canvas element itself
-            const rect = annotationCanvas.getBoundingClientRect();
-            const clientX = e.clientX || e.touches[0].clientX;
-            const clientY = e.clientY || e.touches[0].clientY;
-            
-            const x = clientX - rect.left;
-            const y = clientY - rect.top;
-            
-            // Scale coordinates based on the canvas's current visible size (rect.width/height) 
-            // to its internal drawn resolution (annotationCanvas.width/height)
-            const scaleX = annotationCanvas.width / rect.width;
-            const scaleY = annotationCanvas.height / rect.height;
-            
-            return [x * scaleX, y * scaleY];
-        }
-
-        function toggleAnnotationMode() {
-            if (finalMp4Blob) {
-                isAnnotating = !isAnnotating;
-                if (isAnnotating) {
-                    enterAnnotationMode();
-                } else {
-                    exitAnnotationMode();
-                }
-            }
-            updateUI();
-        }
-
-        function enterAnnotationMode() {
-            // Check if video metadata is loaded before entering
-            if (livePreview.videoWidth === 0 || livePreview.videoHeight === 0) {
-                 errorMessage.textContent = "Video resolution is not yet loaded. Please wait a moment.";
-                 errorMessage.classList.remove('hidden');
-                 isAnnotating = false; // Reset state
-                 return;
-            }
-
-            // Set the canvas size to match the video's intrinsic dimensions
-            annotationCanvas.width = livePreview.videoWidth;
-            annotationCanvas.height = livePreview.videoHeight;
-            
-            // Position the canvas exactly over the video preview element
-            const previewRect = livePreview.getBoundingClientRect();
-            annotationCanvas.style.position = 'absolute';
-            annotationCanvas.style.width = previewRect.width + 'px';
-            annotationCanvas.style.height = previewRect.height + 'px';
-            annotationCanvas.style.top = livePreview.offsetTop + 'px';
-            annotationCanvas.style.left = livePreview.offsetLeft + 'px';
-            
-            annotationCanvas.classList.remove('hidden');
-            livePreview.pause();
-        }
-
-        function exitAnnotationMode() {
-            // Keep the drawing visible but lock the tools
-            livePreview.play();
-        }
-
-        function clearAnnotationCanvas() {
-            ctx.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
-        }
-        
-        function toggleTrimmingUI() {
-            trimmerUI.classList.toggle('hidden');
-        }
-        
         // --- Core Recording Logic ---
-
-        /**
-         * Starts the 3-2-1 countdown before actual recording begins.
-         * @param {MediaStream} stream - The combined stream to record.
-         */
-        function startCountdown(stream) {
-            recordingState = 'counting';
-            updateUI(); // Show "Preparing..." and disable controls
-
-            let count = 3;
-            countdownOverlay.textContent = count;
-            
-            const countdownTimer = setInterval(() => {
-                count--;
-                if (count > 0) {
-                    countdownOverlay.textContent = count;
-                } else if (count === 0) {
-                    countdownOverlay.textContent = 'GO';
-                } else {
-                    // Count is now -1, time to start recording
-                    clearInterval(countdownTimer);
-                    countdownOverlay.classList.add('hidden');
-                    
-                    try {
-                         startRecording(stream);
-                    } catch (e) {
-                        console.error("Failed to start recording after countdown:", e);
-                        // CRITICAL: If startRecording fails, ensure full cleanup
-                        stopStream(stream); 
-                        errorMessage.textContent = `Recording start failed after countdown: ${e.message || e.name}.`;
-                        errorMessage.classList.remove('hidden');
-                        cleanupAndReset(); 
-                    }
-                }
-            }, 1000);
-        }
-
 
         /**
          * Acquires all selected media streams (screen, camera, mic).
@@ -668,24 +283,6 @@
             const isScreenSelected = screenToggle.checked;
             const isCameraSelected = cameraToggle.checked;
             const isMicSelected = micToggle.checked;
-            const fps = parseInt(fpsInput.value) || 30;
-            const selectedResolution = resolutionSelect.value;
-            
-            // Base video constraints object
-            let videoConstraints = { 
-                frameRate: { ideal: fps, max: fps }
-            };
-
-            // Apply resolution constraints based on selection
-            if (selectedResolution !== 'max') {
-                const resolution = selectedResolution.split('x');
-                const width = parseInt(resolution[0]);
-                const height = parseInt(resolution[1]);
-                videoConstraints.width = { ideal: width };
-                videoConstraints.height = { ideal: height };
-            } else {
-                // If 'max' is selected, omit width/height constraints for getDisplayMedia
-            }
 
             if (!isScreenSelected && !isCameraSelected) {
                 throw new Error("You must select at least Screen or Webcam to record video.");
@@ -695,7 +292,7 @@
                 // 1. Acquire Screen Stream
                 if (isScreenSelected) {
                     screenStream = await navigator.mediaDevices.getDisplayMedia({
-                        video: videoConstraints 
+                        video: true
                     });
                     livePreview.srcObject = screenStream;
                     livePreview.load();
@@ -706,7 +303,7 @@
                 // 2. Acquire Camera Stream
                 if (isCameraSelected) {
                     cameraStream = await navigator.mediaDevices.getUserMedia({
-                        video: { frameRate: { ideal: fps, max: fps } }
+                        video: true
                     });
 
                     // If screen is also active, camera is the picture-in-picture overlay
@@ -714,7 +311,6 @@
                         cameraPreview.srcObject = cameraStream;
                         cameraPreview.classList.remove('hidden');
                         cameraPreview.load();
-                        initializeCameraDrag(); // Initialize drag/resize controls
                     } else {
                         // If only camera is selected, it is the main preview
                         livePreview.srcObject = cameraStream;
@@ -787,8 +383,6 @@
                     userMessage = "No camera or microphone devices found.";
                 }
 
-                // CRITICAL: Ensure streams are cleaned up and state is reset on error
-                cleanupAndReset(); 
                 throw new Error(userMessage + (error.name ? ` (Error Type: ${error.name})` : ''));
             }
         }
@@ -801,9 +395,6 @@
             recordedChunks = [];
             // Use vp9 codec for better quality if available
             mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9,opus' });
-            
-            // Timeout to trigger manual stop if the browser's onstop event fails to fire
-            let conversionTimeout = null; 
 
             mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
@@ -812,14 +403,18 @@
             };
 
             mediaRecorder.onstop = async () => {
-                // Clear the manual fallback timeout as the event fired successfully
-                clearTimeout(conversionTimeout); 
+                // Perform cleanup
+                stopStream(screenStream);
+                stopStream(cameraStream);
+                stopStream(micStream);
+                stopTimer();
+                clearPreview();
                 
                 // 1. Create WebM blob from chunks
                 const webmBlob = new Blob(recordedChunks, { type: 'video/webm' });
 
                 // 2. Start conversion status update
-                conversionStatus.textContent = "Converting to MP4... Please wait. This may take a moment for long recordings.";
+                conversionStatus.textContent = "Converting to MP4... Please wait.";
                 conversionStatus.classList.remove('hidden');
                 recordButton.disabled = true;
 
@@ -829,6 +424,7 @@
                     const mp4Blob = await converter.convert(webmBlob, {
                         audio: true,
                         video: true,
+                        // Ensure the blob is not too large for the conversion process
                         maxFileSize: 1024 * 1024 * 1024 // 1GB
                     });
 
@@ -840,16 +436,11 @@
                     livePreview.muted = false; 
                     livePreview.controls = true; 
                     livePreview.classList.remove('hidden');
-                    
-                    // Set up trimming UI mockup duration
-                    livePreview.onloadedmetadata = () => {
-                        const durationMs = livePreview.duration * 1000;
-                        trimEndTime.textContent = formatTime(durationMs);
-                    };
 
                     // 5. Update UI for finished state
                     conversionStatus.classList.add('hidden');
-                    cleanupAndReset(); // Final cleanup after conversion/preview is set
+                    recordingState = 'idle';
+                    updateUI();
 
                 } catch (error) {
                     console.error("MP4 Conversion Failed:", error);
@@ -859,7 +450,7 @@
                     
                     // Fallback to WebM download
                     finalMp4Blob = webmBlob;
-                    finalDownloadButton.textContent = 'Download WebM Video (Fallback)';
+                    downloadButton.textContent = 'Download WebM Video (Fallback)';
                     
                     const videoUrl = URL.createObjectURL(finalMp4Blob);
                     livePreview.src = videoUrl;
@@ -867,13 +458,8 @@
                     livePreview.controls = true; 
                     livePreview.classList.remove('hidden');
                     
-                    // Set up trimming UI mockup duration
-                    livePreview.onloadedmetadata = () => {
-                        const durationMs = livePreview.duration * 1000;
-                        trimEndTime.textContent = formatTime(durationMs);
-                    };
-
-                    cleanupAndReset();
+                    recordingState = 'idle';
+                    updateUI();
                 }
             };
             
@@ -881,35 +467,16 @@
                 console.error('MediaRecorder error:', e);
                 errorMessage.textContent = `Recording failed: ${e.error.name}. Try selecting different sources.`;
                 errorMessage.classList.remove('hidden');
-                stopRecording(false); // Manually stop without triggering mediaRecorder.stop() again
+                stopRecording(false); 
             };
 
-            try {
-                // Set the fallback timeout *before* starting the recording
-                conversionTimeout = setTimeout(() => {
-                    console.warn("MediaRecorder.stop() event failed to fire after 5 seconds. Forcing manual stop.");
-                    // This function handles cleanup and state reset if onstop doesn't fire.
-                    cleanupAndReset(); 
-                    errorMessage.textContent = "Recording unexpectedly stopped or failed to finalize. State has been reset.";
-                    errorMessage.classList.remove('hidden');
-                }, 5000); // 5 second fallback
 
-                mediaRecorder.start(1000); 
-                recordingState = 'recording';
-                livePreview.muted = true; 
-                livePreview.controls = false; 
-                updateUI();
-                startTimer();
-            } catch (e) {
-                // CRITICAL: Protection against failure on start()
-                console.error("Error starting MediaRecorder:", e);
-                clearTimeout(conversionTimeout); // Clear the timeout if we failed before it started
-                stopStream(stream); 
-                recordingState = 'idle';
-                updateUI();
-                errorMessage.textContent = `Recording start failed: ${e.message || e.name}. Please try again.`;
-                errorMessage.classList.remove('hidden');
-            }
+            mediaRecorder.start(1000); 
+            recordingState = 'recording';
+            livePreview.muted = true; 
+            livePreview.controls = false; 
+            updateUI();
+            startTimer();
         }
 
         /**
@@ -920,8 +487,15 @@
             if (mediaRecorder && mediaRecorder.state !== 'inactive' && triggerStop) {
                 mediaRecorder.stop();
             } else {
-                // If triggerStop is false (e.g., called from onerror), just clean up manually.
-                cleanupAndReset();
+                // Manual cleanup if stop() wasn't called (e.g., error case)
+                stopStream(screenStream);
+                stopStream(cameraStream);
+                stopStream(micStream);
+                stopTimer();
+                clearPreview();
+                
+                recordingState = 'idle';
+                updateUI();
             }
         }
         
@@ -946,19 +520,21 @@
                 // Clear any previous artifacts
                 clearPreview();
                 conversionStatus.classList.add('hidden');
-                finalDownloadButton.textContent = 'Download MP4 Video';
+                downloadButton.textContent = 'Download MP4 Video';
 
                 try {
                     const stream = await acquireStreams();
-                    // Start countdown instead of recording directly
-                    startCountdown(stream); 
+                    startRecording(stream);
                 } catch (error) {
-                    // acquireStreams already called cleanupAndReset on failure.
-                    // Just ensure the error message is displayed.
-                    if (error.message) {
-                        errorMessage.textContent = error.message;
-                        errorMessage.classList.remove('hidden');
-                    }
+                    // Cleanup and show error message
+                    stopStream(screenStream);
+                    stopStream(cameraStream);
+                    stopStream(micStream);
+                    clearPreview();
+                    
+                    errorMessage.textContent = error.message;
+                    errorMessage.classList.remove('hidden');
+                    
                     recordingState = 'idle';
                     updateUI();
                 }
@@ -999,6 +575,7 @@
 
             const isMp4 = finalMp4Blob.type === 'video/mp4';
             const extension = isMp4 ? 'mp4' : 'webm';
+            const mimeType = isMp4 ? 'video/mp4' : 'video/webm';
             
             const url = URL.createObjectURL(finalMp4Blob);
             const a = document.createElement('a');
@@ -1011,11 +588,8 @@
             URL.revokeObjectURL(url);
         }
 
-        // Initialize canvas listeners and UI on load
-        window.onload = () => {
-            setupCanvasDrawing();
-            updateUI();
-        };
+        // Initialize UI on load
+        window.onload = updateUI;
     </script>
 </body>
 </html>
