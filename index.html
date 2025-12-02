@@ -161,24 +161,48 @@
         }
 
         /**
-         * Updates the UI based on the current recording state.
+         * Updates the UI based on the current recording state, carefully preserving
+         * the finished video preview if it exists.
          */
         function updateUI() {
-            downloadArea.classList.add('hidden');
             errorMessage.classList.add('hidden');
-            initialMessage.classList.add('hidden');
             
             const isRecording = recordingState !== 'idle';
             const isPaused = recordingState === 'paused';
             
-            // Toggle visibility/text for main buttons
+            // Determine if a finished video is currently loaded for playback (src is set and controls are visible)
+            const hasFinishedVideo = recordingState === 'idle' && livePreview.src.length > 0 && livePreview.controls;
+            
+            // --- UI Visibility ---
+
+            // 1. Initial Message Visibility: Only show if truly idle (no active recording, no finished video preview)
+            if (recordingState === 'idle' && !hasFinishedVideo) {
+                initialMessage.classList.remove('hidden');
+            } else {
+                initialMessage.classList.add('hidden');
+            }
+            
+            // 2. Download Area Visibility: Only show if a finished video is loaded.
+            if (hasFinishedVideo) {
+                downloadArea.classList.remove('hidden');
+            } else {
+                downloadArea.classList.add('hidden');
+            }
+            
+            // 3. Hide camera preview when idle
+            if (recordingState === 'idle') {
+                cameraPreview.classList.add('hidden');
+            }
+
+
+            // --- Button and Toggle State ---
+
             recordButton.disabled = false;
             if (recordingState === 'idle') {
                 recordButton.textContent = 'Start Recording';
                 recordButton.classList.replace('bg-green-600', 'bg-red-600');
                 recordButton.classList.replace('hover:bg-green-700', 'hover:bg-red-700');
                 pauseButton.classList.add('hidden');
-                initialMessage.classList.remove('hidden');
             } else if (recordingState === 'recording') {
                 recordButton.textContent = 'Stop Recording';
                 recordButton.classList.replace('bg-red-600', 'bg-green-600');
@@ -194,14 +218,6 @@
             screenToggle.disabled = isRecording;
             cameraToggle.disabled = isRecording;
             micToggle.disabled = isRecording;
-
-            // Update pause button state
-            if (isRecording) {
-                pauseButton.classList.remove('hidden');
-            } else if (recordingState === 'idle') {
-                pauseButton.classList.add('hidden');
-                cameraPreview.classList.add('hidden'); // Hide camera preview when idle
-            }
         }
 
         /**
@@ -341,7 +357,22 @@
             } catch (error) {
                 // Error handling for permissions or no devices
                 console.error("Error acquiring media streams:", error);
-                throw new Error("Could not access media devices. Please check permissions and device availability. " + (error.name ? `Error: ${error.name}` : ''));
+                
+                let userMessage = "Could not access media devices. Please check permissions and device availability.";
+                
+                if (error.name === 'NotAllowedError') {
+                    if (isScreenSelected) {
+                        // Specific instruction for sandbox/iframe constraint (likely the cause of the original error)
+                        userMessage = "Screen sharing access was denied by your browser or the current execution environment (iframe/sandbox). Try unchecking 'Screen Sharing' and recording only your 'Webcam Feed' instead.";
+                    } else {
+                        userMessage = "Webcam or Microphone access was denied. Please allow camera/mic access in your browser settings.";
+                    }
+                } else if (error.name === 'NotFoundError') {
+                    userMessage = "No camera or microphone devices found.";
+                }
+
+                // Throw a new Error with the custom message to be caught by toggleRecording()
+                throw new Error(userMessage + (error.name ? ` (Error Type: ${error.name})` : ''));
             }
         }
 
@@ -393,7 +424,7 @@
                     URL.revokeObjectURL(videoUrl);
                 };
 
-                downloadArea.classList.remove('hidden');
+                // State change and UI update (updateUI must be smart enough not to hide the preview/download button)
                 recordingState = 'idle';
                 updateUI();
             };
@@ -431,6 +462,7 @@
                 livePreview.srcObject = null;
                 cameraPreview.srcObject = null;
                 livePreview.src = ''; // Clear video source
+                livePreview.controls = false; // Ensure controls are off
                 livePreview.classList.remove('hidden'); // Ensure preview box stays
                 recordingState = 'idle';
                 updateUI();
@@ -456,12 +488,24 @@
                     return;
                 }
 
+                // If recording a new video, clear the previous finished video source
+                livePreview.src = '';
+                livePreview.controls = false;
+
                 try {
                     const stream = await acquireStreams();
                     startRecording(stream);
                 } catch (error) {
+                    // This catches the specific error thrown in acquireStreams()
                     errorMessage.textContent = error.message;
                     errorMessage.classList.remove('hidden');
+                    // Ensure streams are cleaned up and state is reset
+                    stopStream(screenStream);
+                    stopStream(cameraStream);
+                    stopStream(micStream);
+                    screenStream = null;
+                    cameraStream = null;
+                    micStream = null;
                     recordingState = 'idle';
                     updateUI();
                 }
